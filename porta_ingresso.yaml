@@ -1,0 +1,471 @@
+################################################################################
+##################################################### Gestione Porta ingresso ##
+################################################################################
+homeassistant:
+  customize:
+    package.node_anchors:
+      customize: &customize
+        package: 'Gestione Porta Ingresso'
+        version: 'v3.1 - 18/05/21'
+        author: 'Calas'
+
+
+  ################################################
+  ## input_boolean Customize
+  ################################################
+    input_boolean.avviso_porta_ingresso_aperta:
+      <<: *customize
+    input_boolean.avviso_porta_ingresso_chiusa_male:
+      <<: *customize
+    input_boolean.avviso_porta_aperta:
+      <<: *customize
+    input_boolean.porta_aperta:
+      <<: *customize
+    input_boolean.uso_doorbel_xiaomi:
+      <<: *customize
+    accendere_luci_rientro_serale:
+      <<: *customize
+    accendere_luci_rientro:
+      <<: *customize
+    francesco_homecoming:
+      <<: *customize
+    simona_homecoming:
+      <<: *customize
+
+#******************************************************************************#
+#                                   C O R P O                                  #
+#******************************************************************************#
+
+
+################################################################################
+##                  Input Boolean
+###################################################
+input_boolean:
+  avviso_porta_ingresso_aperta:
+    name: Avviso porta ingresso aperta
+  avviso_porta_ingresso_chiusa_male:
+    name: Avviso porta ingresso chiusa male
+  avviso_porta_aperta:
+    name: Avviso porta aperta
+    initial: true
+  porta_aperta: # Serve per evitare l'avviso accidentale se si riapre subito per sbaglio
+    name: Porta Aperta
+    initial: true
+  uso_doorbel_xiaomi:
+    name: Doorbel Xiaomi
+    icon: mdi:dots-hexagon
+  accendere_luci_rientro_serale:
+    name: Accendere Luci Rientro Serale
+  accendere_luci_rientro:
+    name: Accendere Luci Rientro
+  francesco_homecoming:
+    name: Francesco homecoming
+  simona_homecoming:
+    name: Simona homecoming
+
+################################################
+## Sensor
+################################################
+sensor:
+  - platform: template # Sensore stato allarme
+    sensors:
+      input_allarme:
+        friendly_name_template: "Allarme"
+        value_template: "{{ {
+            'armed_home' : 'alarm_control_panel.alarm_arm_home',
+            'armed_away' : 'alarm_control_panel.alarm_arm_away',
+            'armed_night' : 'alarm_control_panel.alarm_arm_night',
+            'disarmed' : 'Disattivato',
+            } [states('alarm_control_panel.allarme')] }}"
+
+################################################################################
+##                  Timer
+###################################################
+timer:
+  porta_aperta:
+    duration: '00:01:00'
+  homecoming:
+    duration: '00:20:00'
+
+################################################################################
+##                  Script
+###################################################
+script:
+  switch_porta_aperta:
+    sequence:
+      - service: input_boolean.turn_off
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_aperta
+      - service: automation.turn_off
+        entity_id:
+          - automation.porta_ingresso_non_chiusa
+      - service: input_boolean.turn_off
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_chiusa_male
+      - delay: "00:00:15"
+      - wait_template: "{{ is_state('binary_sensor.porta_ingresso', 'off') }}"
+      - service: input_boolean.turn_on
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_aperta
+      - service: input_boolean.turn_on
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_chiusa_male
+
+  switch_porta_aperta_allarme_notte:
+    sequence:
+      - service: alarm_control_panel.alarm_disarm
+        data: {"entity_id":"alarm_control_panel.allarme","code":"XXXXXXXX"}
+      - service: input_boolean.turn_off
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_aperta
+      - service: automation.turn_off
+        entity_id:
+          - automation.porta_ingresso_non_chiusa
+      - service: input_boolean.turn_off
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_chiusa_male
+      - delay: "00:00:15"
+      - wait_template: "{{ is_state('binary_sensor.porta_ingresso', 'off') }}"
+      - service: alarm_control_panel.alarm_arm_night
+        data: {"entity_id":"alarm_control_panel.allarme","code":"XXXXXXXXXX"}
+      - service: input_boolean.turn_on
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_aperta
+      - service: input_boolean.turn_on
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_chiusa_male
+
+
+  switch_porta_aperta_allarme_away:
+    sequence:
+      - service: alarm_control_panel.alarm_disarm
+        data: {"entity_id":"alarm_control_panel.allarme","code":"XXXXXXXXXX"}
+      - service: input_boolean.turn_off
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_aperta
+      - service: automation.turn_off
+        entity_id:
+          - automation.porta_ingresso_non_chiusa
+      - service: input_boolean.turn_off
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_chiusa_male
+      - delay: "00:00:15"
+      - wait_template: "{{ is_state('binary_sensor.porta_ingresso', 'off') }}"
+      - service: alarm_control_panel.alarm_arm_away
+        data: {"entity_id":"alarm_control_panel.allarme","code":"XXXXXXXXXXX"}
+      - service: input_boolean.turn_on
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_aperta
+      - service: input_boolean.turn_on
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_chiusa_male
+
+
+  switch_porta_aperta_allarme_in_casa:
+    sequence:
+      - service: alarm_control_panel.alarm_disarm
+        data: {"entity_id":"alarm_control_panel.allarme","code":"XXXXXXXXXXXX"}
+      - service: input_boolean.turn_off
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_aperta
+      - service: automation.turn_off
+        entity_id:
+          - automation.porta_ingresso_non_chiusa
+      - service: input_boolean.turn_off
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_chiusa_male
+      - delay: "00:00:15"
+      - wait_template: "{{ is_state('binary_sensor.porta_ingresso', 'off') }}"
+      - service: alarm_control_panel.alarm_arm_home
+        data: {"entity_id":"alarm_control_panel.allarme","code":"XXXXXXXXXXX"}
+      - service: input_boolean.turn_on
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_aperta
+      - service: input_boolean.turn_on
+        data:
+          entity_id: input_boolean.avviso_porta_ingresso_chiusa_male
+
+  avviso_porta_1:
+    sequence:
+      - service: notify.alexa_media
+        data:
+          target:
+            - media_player.in_casa
+          data:
+            type: announce
+            method: speak
+          message: "Porta ingresso aperta"
+
+  avviso_porta_2:
+    sequence:
+      - service: xiaomi_aqara.play_ringtone
+        data:
+          gw_mac: !secret xiaomi_mac
+          ringtone_id: 10
+          ringtone_vol: 30
+      - service: notify.alexa_media
+        data:
+          target:
+            - media_player.in_casa
+          data:
+            type: announce
+            method: speak
+          message: "Porta ingresso aperta"
+
+  danalock_lock:
+    sequence:
+      - service: lock.lock
+        target:
+          entity_id: lock.danalock
+
+  danalock_unlock:
+    sequence:
+      - service: lock.unlock
+        target:
+          entity_id: lock.danalock
+
+################################################################################
+##                  Automation
+###################################################
+automation:
+
+   ########## Attiva/disattiva AVVISO PORTA APERTA
+   - alias: 'Porta ingresso aperta ON'
+     id: bea5fdbd48cb6535dfab3f4f621b48ef
+     initial_state: true
+     trigger:
+       - platform: state
+         entity_id: input_boolean.avviso_porta_ingresso_aperta
+         to: 'on'
+     action:
+       - service: automation.turn_on
+         entity_id:
+           - automation.avviso_porta_aperta
+
+   - alias: 'Porta ingresso aperta OFF'
+     id: c10e4f5b4906d21d419816d6fde16fab
+     initial_state: true
+     trigger:
+       - platform: state
+         entity_id: input_boolean.avviso_porta_ingresso_aperta
+         to: 'off'
+     action:
+       - service: automation.turn_off
+         entity_id:
+           - automation.avviso_porta_aperta
+
+   - alias: Timer porta stop
+     id: f80ace0a63410eb0cffef74407731f99
+     initial_state: true
+     trigger:
+       - platform: state
+         entity_id: binary_sensor.porta_ingresso
+         to: 'off'
+     action:
+       - service: timer.cancel
+         entity_id: timer.porta_aperta
+
+   ########## Attiva/disattiva AVVISO PORTA CHIUSA MALE
+   - alias: 'Porta ingresso chiusa male ON'
+     id: eccd04000659d6ae79bcc604901deaf0
+     initial_state: true
+     trigger:
+       - platform: state
+         entity_id: input_boolean.avviso_porta_ingresso_chiusa_male
+         to: 'on'
+     action:
+       - service: automation.turn_on
+         entity_id:
+           - automation.porta_ingresso_non_chiusa
+
+   - alias: 'Porta ingresso chiusa male OFF'
+     id: 935d97463942841ab1d1b967d431892a
+     initial_state: true
+     trigger:
+       - platform: state
+         entity_id: input_boolean.avviso_porta_ingresso_chiusa_male
+         to: 'off'
+     action:
+       - service: automation.turn_off
+         entity_id:
+           - automation.porta_ingresso_non_chiusa
+
+#################################### Avviso Porta ##############################
+   - alias: Avviso porta aperta
+     id: avviso_porta_aperta_cnv
+     initial_state: true
+     trigger:
+       - platform: state
+         entity_id: binary_sensor.porta_ingresso
+         to: 'on'
+     condition:
+       - condition: state
+         entity_id: input_boolean.avviso_porta_aperta
+         state: 'on'
+       - condition: state
+         entity_id: 'input_boolean.francesco_homecoming'
+         state: 'off'
+       - condition: state
+         entity_id: 'input_boolean.simona_homecoming'
+         state: 'off'
+     action:
+       - service: input_boolean.turn_on
+         data:
+           entity_id: input_boolean.messaggio_prioritario
+       - service_template: >
+           {% if states.input_boolean.uso_doorbel_xiaomi.state == "on" %}
+             script.avviso_porta_2
+           {% elif states.input_boolean.uso_doorbel_xiaomi.state == "off" %}
+             script.avviso_porta_1
+           {% endif %}
+       - delay: "00:00:06"
+       - service: input_boolean.turn_off
+         data:
+           entity_id: input_boolean.messaggio_prioritario
+       - service: input_boolean.turn_off
+         data:
+           entity_id: input_boolean.avviso_porta_aperta
+       - delay: "00:00:10"
+       - service: input_boolean.turn_on
+         data:
+           entity_id: input_boolean.avviso_porta_aperta
+
+   - alias: Avviso Porta ingresso non chiusa
+     id: avviso_porta_ingresso_non_chiusa_cnv
+     initial_state: true
+     trigger:
+       platform: state
+       entity_id: binary_sensor.porta_ingresso
+       to: 'on'
+       for:
+         seconds: 30
+     condition:
+       - condition: state
+         entity_id: input_boolean.avviso_porta_ingresso_chiusa_male
+         state: 'on'
+       - condition: state
+         entity_id: 'input_boolean.francesco_homecoming'
+         state: 'off'
+     action:
+       - service: notify.alexa_media
+         data:
+           target:
+             - media_player.in_casa
+           data:
+             type: announce
+             method: speak
+           message: "Attenzione! la porta ingresso è rimasta aperta."
+       - service: timer.start
+         entity_id: timer.porta_aperta
+
+   - alias: Ripetizione porta ingresso aperta
+     id: ripetizione_avviso_porta_ingresso_aperta_cnv
+     trigger:
+       - platform: event
+         event_type: timer.finished
+         event_data:
+           entity_id: timer.porta_aperta
+     condition:
+       condition: state
+       entity_id: binary_sensor.porta_ingresso
+       state: 'on'
+     action:
+       - service: notify.alexa_media
+         data:
+           target:
+             - media_player.in_casa
+           data:
+             type: announce
+             method: speak
+           message: "Attenzione! la porta ingresso è rimasta aperta."
+       - service: timer.start
+         entity_id: timer.porta_aperta
+
+#################################### Disattivazione Allarme ####################
+   - alias: Switch Avviso Porta Aperta off # Disabilitazione allarme
+     id: fa1237c6161ef0b99bfe94a0a4ef6550
+     initial_state: true
+     trigger:
+       - platform: event
+         event_type: zha_event
+         event_data:
+           device_ieee: !secret tasto_porta_ingresso
+           command: 'click'
+           args:
+             click_type: single
+     mode: restart
+     action:
+       - service_template: >
+           {% if is_state('alarm_control_panel.allarme','armed_night') %} script.switch_porta_aperta_allarme_notte
+           {% elif is_state('alarm_control_panel.allarme','armed_away') %} script.switch_porta_aperta_allarme_away
+           {% elif is_state('alarm_control_panel.allarme','armed_home') %} script.switch_porta_aperta_allarme_in_casa
+           {% else %} script.switch_porta_aperta
+           {% endif %}
+
+   - alias: 'Ferma avviso Porta ingresso aperta timer start'
+     id: a1c75e6907e15a8d059906f18cac5264
+     initial_state: true
+     trigger:
+       - platform: state
+         entity_id: person.francesco
+         to: 'home'
+       - platform: state
+         entity_id: person.simona
+         to: 'home'
+     action:
+       - service_template: >
+           {% if is_state("person.francesco", "home") %}
+              input_boolean.turn_on
+           {% endif %}
+         entity_id: input_boolean.francesco_homecoming
+       - service_template: >
+           {% if is_state("person.simona", "home") %}
+              input_boolean.turn_on
+           {% endif %}
+         entity_id: input_boolean.francesco_homecoming
+       - service: timer.start
+         entity_id: timer.homecoming
+       - service: input_boolean.turn_off
+         data:
+           entity_id: input_boolean.avviso_porta_ingresso_chiusa_male
+
+   - alias: 'Ferma avviso Porta ingresso aperta timer finished'
+     id: 5ca2addd7c5d4eed770401c74f79ff02
+     trigger:
+       - platform: event
+         event_type: timer.finished
+     action:
+       - service: input_boolean.turn_off
+         data:
+           entity_id: input_boolean.francesco_homecoming
+       - service: input_boolean.turn_off
+         data:
+           entity_id: input_boolean.simona_homecoming
+       - service: input_boolean.turn_on
+         data:
+           entity_id: input_boolean.avviso_porta_ingresso_chiusa_male
+
+
+   - alias: 'Reset input Boolean homecoming'
+     id: 12a6fc95aae3ef262f21824ac4124485
+     initial_state: true
+     trigger:
+       - platform: state
+         entity_id: binary_sensor.porta_ingresso
+         to: 'on'
+     condition:
+       condition: or
+       conditions:
+         - condition: state
+           entity_id: 'input_boolean.francesco_homecoming'
+           state: 'on'
+         - condition: state
+           entity_id: 'input_boolean.simona_homecoming'
+           state: 'on'
+     action:
+       - service: input_boolean.turn_off
+         data:
+           entity_id: input_boolean.francesco_homecoming
+       - service: input_boolean.turn_off
+         data:
+           entity_id: input_boolean.simona_homecoming
